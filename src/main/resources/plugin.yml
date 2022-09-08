@@ -1,0 +1,6 @@
+name: SimpleHolo
+main: fr.xamez.simpleholo.TestPlugin
+version: 1.0
+author: Xamez
+api-version: 1.18
+depend: [ ProtocolLib ]
