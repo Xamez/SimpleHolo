@@ -7,22 +7,24 @@ import com.comphenix.protocol.events.PacketAdapter;
 import com.comphenix.protocol.events.PacketContainer;
 import com.comphenix.protocol.events.PacketEvent;
 import com.comphenix.protocol.wrappers.EnumWrappers;
-import fr.xamez.simpleholo.events.HologramInteractEvent;
 import fr.xamez.simpleholo.exception.HologramManagerNotInitializedException;
 import fr.xamez.simpleholo.hologram.line.Line;
 import fr.xamez.simpleholo.hologram.view.HologramViewer;
-import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.lang.reflect.InvocationTargetException;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
-public class HologramManager implements Listener {
+public class HologramManager {
 
     private JavaPlugin plugin;
 
@@ -47,10 +49,20 @@ public class HologramManager implements Listener {
     public void destroyHologramPacket(Hologram hologram, Player... viewers) {
         final PacketContainer destroyPackContainer = new PacketContainer(PacketType.Play.Server.ENTITY_DESTROY);
         destroyPackContainer.getModifier().writeDefaults();
-        destroyPackContainer.getIntegerArrays().write(0, hologram.getEntitiesId().stream().filter(i -> i != -1).mapToInt(i -> i).toArray());
+        destroyPackContainer.getIntLists().write(0, hologram.getEntitiesId().stream().filter(i -> i != -1).mapToInt(i -> i).boxed().collect(Collectors.toList()));
         try {
-            for (Player viewer : viewers)
-                protocolManager.sendServerPacket(viewer.getPlayer(), destroyPackContainer);
+            for (Player viewer : viewers) protocolManager.sendServerPacket(viewer.getPlayer(), destroyPackContainer);
+        } catch (InvocationTargetException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void destroyLinePacket(Hologram hologram, Line line, Player... viewers) {
+        final PacketContainer destroyPackContainer = new PacketContainer(PacketType.Play.Server.ENTITY_DESTROY);
+        destroyPackContainer.getModifier().writeDefaults();
+        destroyPackContainer.getIntLists().write(0, Collections.singletonList(hologram.getEntitiesId().get(hologram.getLines().indexOf(line))));
+        try {
+            for (Player viewer : viewers) protocolManager.sendServerPacket(viewer.getPlayer(), destroyPackContainer);
         } catch (InvocationTargetException e) {
             e.printStackTrace();
         }
@@ -66,31 +78,27 @@ public class HologramManager implements Listener {
         hologram.markAsCreated();
     }
     public void createHologramPacket(Hologram hologram, Player... viewers) {
-        Location hologramLocation = hologram.getLocation();
-        for (Line line : hologram.getLines()) {
-            hologram.getEntitiesId().add(line.apply(hologram, hologramLocation, viewers));
-            hologramLocation.subtract(0, hologram.getSpacing(), 0);
-        }
+        Location hologramLocation = hologram.getLocation().clone();
+        for (Line line : hologram.getLines())
+            hologram.getEntitiesId().add(createLinePacket(hologram, line, hologramLocation, viewers));
     }
 
-    /*public void editLine(Hologram hologram, int index, Line newLine) {
+    public int createLinePacket(Hologram hologram, Line line, Location hologramLocation, Player... viewers) {
+        int entityId = line.apply(hologram, hologramLocation, viewers);
+        hologramLocation.subtract(0, hologram.getSpacing(), 0);
+        return entityId;
+    }
+
+    public void editLine(Hologram hologram, int index, Line newLine) {
         if (index < 0 || index >= hologram.getLines().size())
             throw new IndexOutOfBoundsException("Index " + index + " is out of bounds for this hologram. Max index is " + (hologram.getLines().size() - 1));
-        final Line oldLine = hologram.getLines().get(index);
-        // TODO !!
-        hologram.getLines().set(index, newLine);
-        if (!hologram.getEntities().isEmpty()) {
-            final Entity entity = hologram.getEntities().get(index);
-            if (oldLine instanceof StringLine && newLine instanceof StringLine stringLine)
-                entity.setCustomName(stringLine.text());
-            else if (oldLine instanceof ItemLine && newLine instanceof ItemLine itemLine) {
-                ((Item) entity).setItemStack(itemLine.itemStack());
-            } else {
-                // this method can be call asynchronously, but we need to reload the hologram synchronously
-                Bukkit.getScheduler().runTask(plugin, () -> reloadHologram(hologram));
-            }
+        if (!hologram.getEntitiesId().isEmpty()) {
+            destroyLinePacket(hologram, hologram.getLines().get(index), HologramViewer.getViewers(hologram));
+            int entityId = createLinePacket(hologram, newLine, hologram.getLocation().clone().subtract(0, index * hologram.getSpacing(), 0), HologramViewer.getViewers(hologram));
+            hologram.getEntitiesId().set(index, entityId);
         }
-    }*/
+        hologram.getLines().set(index, newLine);
+    }
 
     public void createHolograms() {
         new HashSet<>(HOLOGRAMS).forEach(this::createHologram);
@@ -103,10 +111,6 @@ public class HologramManager implements Listener {
 
     public void reloadHolograms() {
         HOLOGRAMS.forEach(this::reloadHologram);
-    }
-
-    public Optional<Hologram> getHologramByUUID(UUID uuid) {
-        return HOLOGRAMS.stream().filter(hologram -> hologram.getUUID().equals(uuid)).findFirst();
     }
 
     public Optional<Hologram> getHologramFrom(Location location) {
@@ -142,6 +146,12 @@ public class HologramManager implements Listener {
         instance = new HologramManager();
         instance.plugin = plugin;
         protocolManager = ProtocolLibrary.getProtocolManager();
+        plugin.getServer().getPluginManager().registerEvents(new Listener() {
+            @EventHandler
+            public void playerQuit(PlayerQuitEvent e) {
+                HologramViewer.deletePlayer(e.getPlayer());
+            }
+        }, plugin);
     }
 
     public static ProtocolManager getProtocolManager() {

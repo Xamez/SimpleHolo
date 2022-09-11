@@ -5,10 +5,7 @@ import fr.xamez.simpleholo.hologram.HologramManager;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class HologramViewer {
 
@@ -17,7 +14,7 @@ public class HologramViewer {
     public static void addView(Player player, Hologram hologram){
         HologramManager.getInstance().createHologramPacket(hologram, player);
         if (HOLOGRAM_VIEWS.get(player) == null)
-            HOLOGRAM_VIEWS.put(player, new ArrayList<>());
+            HOLOGRAM_VIEWS.put(player, new ArrayList<>(Collections.singletonList(hologram)));
         else
             HOLOGRAM_VIEWS.get(player).add(hologram);
     }
@@ -33,26 +30,30 @@ public class HologramViewer {
         return HOLOGRAM_VIEWS.get(player).contains(hologram);
     }
 
-    public static List<Player> getViewers(Hologram hologram) {
+    public static List<Player> getViewersList(Hologram hologram) {
+        return Arrays.stream(getViewers(hologram)).toList();
+    }
+
+    public static Player[] getViewers(Hologram hologram) {
         return HOLOGRAM_VIEWS.entrySet().stream()
                 .filter(entry -> entry.getValue().contains(hologram))
                 .map(Map.Entry::getKey)
-                .toList();
+                .toArray(Player[]::new);
     }
 
     public static void addViewAll(Hologram hologram){
         for (Player player : Bukkit.getOnlinePlayers()) { // code duplication but it's more efficient than calling addView
                                                           // that will create a packet for each player instead of 1 for all
             if (HOLOGRAM_VIEWS.get(player) == null)
-                HOLOGRAM_VIEWS.put(player, new ArrayList<>());
+                HOLOGRAM_VIEWS.put(player, new ArrayList<>(Collections.singletonList(hologram)));
             else
                 HOLOGRAM_VIEWS.get(player).add(hologram);
         }
-        HologramManager.getInstance().createHologramPacket(hologram, HologramViewer.getViewers(hologram).toArray(Player[]::new));
+        HologramManager.getInstance().createHologramPacket(hologram, HologramViewer.getViewers(hologram));
     }
 
     public static void clearViews(Hologram hologram) {
-        HologramManager.getInstance().destroyHologramPacket(hologram, HologramViewer.getViewers(hologram).toArray(Player[]::new));
+        HologramManager.getInstance().destroyHologramPacket(hologram, HologramViewer.getViewers(hologram));
         for (Player player : HOLOGRAM_VIEWS.keySet()) {
             if (HOLOGRAM_VIEWS.get(player) == null) continue;
             HOLOGRAM_VIEWS.get(player).remove(hologram);
@@ -63,4 +64,8 @@ public class HologramViewer {
         HOLOGRAM_VIEWS.remove(player);
     }
 
+    public static void deletePlayer(Player player) {
+        if (HOLOGRAM_VIEWS.get(player) == null) return;
+        HOLOGRAM_VIEWS.remove(player);
+    }
 }

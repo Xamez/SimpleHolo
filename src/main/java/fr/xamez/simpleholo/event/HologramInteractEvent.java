@@ -1,4 +1,4 @@
-package fr.xamez.simpleholo.events;
+package fr.xamez.simpleholo.event;
 
 import fr.xamez.simpleholo.hologram.Hologram;
 import org.bukkit.entity.Player;

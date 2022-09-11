@@ -1,6 +1,6 @@
 package fr.xamez.simpleholo;
 
-import fr.xamez.simpleholo.events.HologramInteractEvent;
+import fr.xamez.simpleholo.event.HologramInteractEvent;
 import fr.xamez.simpleholo.hologram.Hologram;
 import fr.xamez.simpleholo.hologram.HologramManager;
 import fr.xamez.simpleholo.hologram.line.Line;
@@ -24,17 +24,19 @@ public class TestPlugin extends JavaPlugin implements Listener {
 
     @EventHandler
     public void test(PlayerInteractEvent e) {
-        if (e.getItem() == null || !e.getItem().getType().equals(Material.DIAMOND_SWORD)) return;
-        Hologram hologram = new Hologram(e.getPlayer().getLocation().add(0, 1.5, 0), "§aCeci est un test !", "§bDeuxième ligne", "Une troisième pour bien tester :)");
-        hologram.addLine(Line.of()); // Empty line
-        //hologram.addLine(new ItemStack(Material.REDSTONE_BLOCK));
-        /*getServer().getScheduler().runTaskTimerAsynchronously(this, () -> {
-            hologram.updateLine(0, Line.of("§c" + Math.random() * 100000));
-            Material material = Material.values()[new Random().nextInt(Material.values().length)];
-            if (!material.isItem()) material = Material.STONE;
-            hologram.updateLine(1, Line.of(new ItemStack(material)));
-        }, 0L, 1L);*/
-        HologramManager.getInstance().createHologram(hologram);
+        if (e.getItem() == null) return;
+        if (e.getItem().getType() == Material.NETHER_STAR) {
+            e.getPlayer().performCommand("plugman reload SimpleHolo");
+        } else if (e.getItem().getType() == Material.DIAMOND_SWORD) {
+            Hologram hologram = new Hologram(e.getPlayer().getLocation()/*.add(0, 1.5, 0)*/, Line.of(new ItemStack(Material.COMMAND_BLOCK)), Line.of(new ItemStack(Material.REDSTONE_BLOCK)), Line.of(), Line.of("§aCeci est un test !"), Line.of("§6Une autre ligne!"));
+            getServer().getScheduler().runTaskTimerAsynchronously(this, () -> {
+                //hologram.updateLine(1, Line.of("§c" + Math.random() * 100000));
+                Material material = Material.values()[new Random().nextInt(Material.values().length)];
+                if (!material.isItem() || material.isAir()) material = Material.STONE;
+                hologram.updateLine(1, Line.of(new ItemStack(material)));
+            }, 0L, 1L);
+            HologramManager.getInstance().createHologram(hologram);
+        }
     }
 
     @EventHandler

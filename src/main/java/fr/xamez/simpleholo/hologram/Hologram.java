@@ -13,7 +13,6 @@ public class Hologram {
 
     public final static float MINIMUM_SPACING = 0.0f;
     public final static float MAXIMUM_SPACING = 20f; // An arbitrary decision to limit the spacing
-    private transient final UUID uuid;
     private List<Line> lines;
 
     private final List<Integer> entitiesId;
@@ -33,7 +32,6 @@ public class Hologram {
     };
 
     public Hologram(Location location, float spacing, Line... lines) {
-        this.uuid = UUID.randomUUID();
         this.lines = new ArrayList<>(List.of(lines));
         this.location = location;
         this.spacing = spacing;
@@ -56,8 +54,16 @@ public class Hologram {
         hologramUpdater.accept(hologram -> hologram.lines.add(Line.of(text)));
     }
 
+    public void addLines(String... text) {
+        for (String s : text) addLine(s);
+    }
+
     public void addLine(ItemStack itemStack) {
         hologramUpdater.accept(hologram -> hologram.lines.add(Line.of(itemStack)));
+    }
+
+    public void addLines(ItemStack... itemStack) {
+        for (ItemStack stack : itemStack) addLine(stack);
     }
 
     public void addLine(Line line) {
@@ -77,7 +83,10 @@ public class Hologram {
     public void updateLine(int index, Line line) {
         if (index < 0 || index >= lines.size())
             throw new IndexOutOfBoundsException("Index " + index + " is out of bounds for lines of size " + lines.size());
-        hologramUpdater.accept(hologram -> hologram.lines.set(index, line));
+        if (line.getClass() != lines.get(index).getClass())
+            hologramUpdater.accept(hologram -> hologram.lines.set(index, line));
+        else
+            HologramManager.getInstance().editLine(this, index, line);
     }
 
     public void setLines(List<Line> lines) {
@@ -110,10 +119,6 @@ public class Hologram {
         return location;
     }
 
-    public UUID getUUID() {
-        return uuid;
-    }
-
     public List<Integer> getEntitiesId() {
         return entitiesId;
     }
@@ -129,11 +134,11 @@ public class Hologram {
 
         Hologram hologram = (Hologram) o;
 
-        return Objects.equals(uuid, hologram.uuid);
+        return entitiesId.equals(hologram.entitiesId);
     }
 
     @Override
     public int hashCode() {
-        return uuid != null ? uuid.hashCode() : 0;
+        return entitiesId.hashCode();
     }
 }

@@ -5,12 +5,14 @@ import com.comphenix.protocol.events.PacketContainer;
 import com.comphenix.protocol.wrappers.WrappedDataWatcher;
 import fr.xamez.simpleholo.hologram.Hologram;
 import fr.xamez.simpleholo.hologram.HologramManager;
+import fr.xamez.simpleholo.hologram.view.HologramViewer;
 import org.bukkit.Location;
-import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
+import java.lang.reflect.InvocationTargetException;
+import java.util.List;
 import java.util.UUID;
 
 public interface Line {
@@ -27,26 +29,30 @@ public interface Line {
         return new ItemLine(itemStack);
     }
 
-    default PacketContainer[] createDefaultPackets(int entityId, Location location, UUID holoUUID, EntityType entityType, WrappedDataWatcher metadata, boolean isEntityLiving) {
-        // Spawn entity
-        final PacketType packetType = isEntityLiving ? PacketType.Play.Server.SPAWN_ENTITY_LIVING : PacketType.Play.Server.SPAWN_ENTITY;
-        final PacketContainer entitySpawnPacketContainer = HologramManager.getProtocolManager().createPacket(packetType);
-        entitySpawnPacketContainer.getModifier().writeDefaults();
+    default PacketContainer createEntityPacket(int entityId, Location location, EntityType entityType) {
+        final PacketContainer entitySpawnPacketContainer = HologramManager.getProtocolManager().createPacket(PacketType.Play.Server.SPAWN_ENTITY);
         entitySpawnPacketContainer.getIntegers().write(0, entityId);
         entitySpawnPacketContainer.getEntityTypeModifier().write(0, entityType);
-        entitySpawnPacketContainer.getUUIDs().write(0, holoUUID);
+        entitySpawnPacketContainer.getUUIDs().write(0, UUID.randomUUID());
         entitySpawnPacketContainer.getDoubles()
                 .write(0, location.getX())
                 .write(1, location.getY())
                 .write(2, location.getZ());
+        return entitySpawnPacketContainer;
+    }
 
-        // Update metadata
+    default void sendEntitySpawnPacket(int entityId, PacketContainer entityPacketContainer, WrappedDataWatcher metadata, Player... viewers) {
         final PacketContainer entityMetaDataPacketContainer = new PacketContainer(PacketType.Play.Server.ENTITY_METADATA);
-        entityMetaDataPacketContainer.getModifier().writeDefaults();
         entityMetaDataPacketContainer.getIntegers().write(0, entityId);
         entityMetaDataPacketContainer.getWatchableCollectionModifier().write(0, metadata.getWatchableObjects());
-
-        return new PacketContainer[] { entitySpawnPacketContainer, entityMetaDataPacketContainer };
+        try {
+            for (Player viewer : viewers) {
+                HologramManager.getProtocolManager().sendServerPacket(viewer, entityPacketContainer);
+                HologramManager.getProtocolManager().sendServerPacket(viewer, entityMetaDataPacketContainer);
+            }
+        } catch (InvocationTargetException e) {
+            e.printStackTrace();
+        }
     }
 
     int apply(Hologram hologram, Location location, Player... viewers);
