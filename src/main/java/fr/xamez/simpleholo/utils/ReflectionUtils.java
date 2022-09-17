@@ -79,8 +79,7 @@ public class ReflectionUtils {
 
     public static Object getDataWatcher(Object entityItem) {
         try {
-            final Class<?> entityItemClazz = getClass("net.minecraft.world.entity.item.EntityItem");
-            final Method getDataWatcherMethod = entityItemClazz.getDeclaredMethod("ai"); // getDataWatcher
+            final Method getDataWatcherMethod = entityItem.getClass().getMethod("ai"); // getDataWatcher
             return getDataWatcherMethod.invoke(entityItem);
         } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
             throw new RuntimeException(e);
